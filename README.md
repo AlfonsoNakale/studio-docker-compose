@@ -1,6 +1,6 @@
 # Rasa Studio Docker Setup
 
-This directory contains the Docker Compose configuration to run Rasa Studio locally.
+This directory contains the Docker Compose configuration to run Rasa Studio locally. Further information about this can be found [here](https://rasa.com/docs/studio/installation/installation-guides/docker-compose-guide).
 
 ## Prerequisites
 
