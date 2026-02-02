@@ -1,0 +1,117 @@
+The Rasa Platform Workflow
+The Rasa Platform is designed to enable teams to build, test, and improve conversational AI solutions collaboratively. It combines Rasa Studio, a no-code tool for designing and managing conversation flows, with Rasa Pro, a developer-focused framework for building and fine-tuning assistants. Together, these tools provide an end-to-end lifecycle management platform for conversational AI. Below is a high-level guide to how the workflow operates across the Rasa Platform.
+
+Although it is possible to build complete bots with Pro only, we recommend to use Studio as the interface to build Flows and generally the content of an assistant. This way technical and less technical roles can collaborate together.
+
+Rasa platform workflow
+We are constantly improving this workflow to make it even more seamless. While the core concept won’t change, except some quality of life improvements and more tasks added (Think Analytics, simpler back and forth between Studio and Pro layer) in the future.
+
+Studio and Pro: An Integrated Workflow
+The Rasa Platform integrates Rasa Studio and Rasa Pro into a continuous workflow, as shown in the diagram. This integration ensures that teams can iteratively design, test, and deploy conversational AI solutions. Here’s a step-by-step overview of the workflow, starting with the Studio layer:
+
+1. Write Flows (Studio)
+Teams begin by designing conversation flows in Studio. This involves defining user intents, conversation design via the creation of Flows using the visual, no-code interface. These flows form the foundation of your assistant.
+
+2. Write Content (Studio)
+Content, such as training data (NLU) and responses, is written directly in Studio. This step ensures that the assistant’s responses are aligned with user expectations and use cases. it also helps multiple content writer to work together.
+
+3. Train (Studio)
+Once flows and content are defined, the assistant is trained. Training is handled in Studio, making it easy to iterate and quickly see results.
+
+4. Inspect (Studio)
+Post-training, teams can inspect the assistant’s behavior in Studio. This allows you to validate that it behaves as expected and identify any areas that require refinement. The inspector provides insights into which flows are being triggered, enabling teams to debug and improve the assistant effectively.
+
+5. Generate Tests (Studio)
+Studio can also generate and download test cases based on the flows and training data. These tests help ensure that the assistant’s behavior is consistent and reliable.
+
+6. Download (Pro)
+Once the assistant is designed and tested in Studio, it can be downloaded into Rasa Pro for further development. Pro provides tools for writing custom actions and implementing advanced use cases.
+
+7. Write Custom Actions and Components (Pro)
+In Rasa Pro, developers can write custom Python actions to handle complex logic, API integrations, or unique conversational behaviors that go beyond the capabilities of Studio.
+
+Developers can also customize advanced components of CALM.
+
+8. Run Tests (Pro)
+Tests generated in Studio or written in Pro can be executed to validate the assistant’s performance. This step ensures robustness before deployment.
+
+9. CI and Merge (Pro)
+These steps are highly dependent on your internal CI/CD workflow. Generally speaking, you can push the downloaded assistant code to your Git repository.
+
+You can then trigger CI to validate the full assistant, including custom actions, slot logic, and flow consistency.
+
+10. Deploy
+Finally, the assistant is deployed to production, ready to interact with users. Continuous iteration and improvements can be made by revisiting earlier steps.
+
+Fix and Improve: A Continuous Feedback Loop
+The Rasa Platform workflow emphasizes iteration. After deployment, teams can:
+
+Review conversations and analyze user interactions in Studio.
+Identify gaps in the assistant’s understanding.
+Refine conversation flows, content, or actions.
+This ensures that the assistant evolves to meet user needs and business goals over time.
+
+Conversational AI with Language Models
+Combine LLM fluency with business logic reliability to create scalable, cost-efficient, and reliable conversational AI for real-world applications.
+
+Conversational AI With Language Models (CALM) is an approach to building voice and chat bots. It extends LLMs with a reliable way to run business logic. CALM assistants are faster, cheaper to run, more controllable, easier to debug, and much more reliable than other LLM-based approaches.
+
+Who is CALM For?
+CALM is designed for:
+
+AI/ML practitioners and Developers looking to build scalable conversational assistants.
+Conversation Designers who care about user experience and want to build high-trust AI assistants.
+Businesses seeking robust, real-world AI applications without sacrificing control or reliability.
+What is CALM?
+CALM (Conversational AI with Language Models) is Rasa’s LLM-native approach to building reliable conversational AI. It combines the fluency and flexibility of LLMs with the structure and control needed for production use cases.
+
+If you use CALM in your research, please consider citing our research paper.
+
+Key Features
+Separation of Concerns: LLMs handle conversational fluency, while flows enforce business logic execution.
+Support for Smaller Models: Works with fine-tuned LLMs like Llama 8B, reducing costs and latency.
+Reliability: Adheres to strictly defined business logic while maintaining conversational flexibility.
+Scalability: Flexible deployment options, from Hugging Face to self-hosting.
+Relevant for Existing NLU Users: Using language models to understand your users improves system accuracy & contextual understanding.
+How CALM Works
+Separation of Fluency and Task Execution
+CALM uses an LLM to determine how the user wants to progress the conversation. It does not rely on the LLM to guess or execute the steps needed to complete the process. Instead:
+
+The business logic to complete a task is explicitly defined.
+LLMs interpret how the user would like to progress the conversation.
+This separation ensures CALM provides:
+
+Fluency and flexibility from LLMs.
+Reliability and predictability from structured flows.
+In addition, CALM automatically handles many conversation patterns like topic changes, corrections, digressions, clarifications, and more. This allows you to focus on implementing your business logic, while CALM already handles the complexity of real conversations with end users.
+
+Business Logic
+Define flows that describe tasks like data collection, decision-making, and API calls. Flows ensure predictable, reliable execution.
+
+Dialogue Understanding
+Interpret user input contextually and generate commands aligned with your assistant’s business logic.
+
+Automatic Conversation Patterns
+Handle off-script scenarios, such as interruptions or ambiguous input, to keep conversations on track. In the example below, you can see CALM deftly handles a user deciding they want to change the amount transferred:
+
+CALM compared to ReAct-Style Agents
+"LLM Agents" often refers to the idea of using LLMs as a reasoning engine. See the Reasoning and Acting (ReAct) framework for an example.
+
+CALM uses an LLM to determine how the user wants to progress the conversation. It does not use an LLM to guess what the correct set of steps are to complete that process. This is the primary difference between the two approaches.
+
+CALM uses an LLM to understand the user side of the conversation, but not the system side. In a ReAct-style agent, an LLM is used for both.
+
+When each of these is appropriate:
+
+Concern	ReAct-Style Agents	CALM
+Understanding the User	Use LLMs to interpret user input and decide the system's next steps.	Use LLMs solely to interpret user input; task execution is handled by flows.
+Deciding what the next step(s) should be	Business logic is embedded within prompts, leading to inconsistent behavior.	Business logic is explicitly defined in flows and enforced by the FlowPolicy.
+Execution of next steps	Depend on LLMs for both task interpretation and execution, which often leads to probabilistic behavior.	Separates conversational fluency (handled by the LLM) from task execution (handled by flows).
+Approach to conversation	Designed for open-ended, exploratory tasks where flexibility is prioritized over structure.	Designed for tasks with clear business goals, where structure and reliability are essential.
+Costs in production	May incur higher costs and latency due to multiple LLM calls for task execution.	Supports cost-efficient deployment, including smaller, fine-tuned models like Llama 8B, to reduce latency and operational expenses.
+Smaller Models, Big Results
+CALM works out of the box with state-of-the-art models, such as OpenAI’s GPT 4.0. It is also designed to work with fine-tuned models as small as Llama 8B, enabling:
+
+Faster Response Times: Essential for real-time applications like voice assistants.
+Cost Efficiency: Shift from token-based pricing to predictable hosting costs with self-hosted models.
+Scalability: Deploy on Hugging Face or private infrastructure for better control over performance and security.
