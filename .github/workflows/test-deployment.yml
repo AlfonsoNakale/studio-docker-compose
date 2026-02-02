@@ -6,6 +6,10 @@ on:
       - main
   pull_request:
 
+env:
+  RASA_PRO_LICENSE: ${{ secrets.RASA_PRO_LICENSE_SECRET_KEY }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY_SECRET_KEY }}
+
 jobs:
   test-deployment:
     runs-on: ubuntu-24.04
