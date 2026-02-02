@@ -19,7 +19,6 @@ jobs:
         id: start_docker_compose
         shell: bash
         run: |
-            mkdir -p rasa-pro
             docker-compose up -d
             echo "Waiting for services to start..."
     
