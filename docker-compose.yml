@@ -210,6 +210,7 @@ services:
       "python -m rasa.model_service"
     volumes:
       - "./rasa-pro:/app/working-data"
+      - "./rasa-pro/enterprise-search-data:/app/docs"
     environment:
       RASA_MODEL_SERVER_BASE_URL: http://localhost:8000/talk
       RASA_PRO_LICENSE: ${RASA_PRO_LICENSE}
