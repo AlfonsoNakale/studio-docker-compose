@@ -32,6 +32,10 @@ jobs:
         run: |
             docker compose up -d
             echo "Waiting for services to start..."
+            
+      - name: Dump Docker Logs on Failure
+        if: failure()
+        run: docker compose logs      
     
       - name: Wait for startup-helper to complete
         id: wait_for_startup
