@@ -19,7 +19,7 @@ jobs:
         id: start_docker_compose
         shell: bash
         run: |
-            docker-compose up -d
+            docker compose up -d
             echo "Waiting for services to start..."
     
       - name: Wait for startup-helper to complete
