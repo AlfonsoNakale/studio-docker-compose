@@ -30,11 +30,7 @@ jobs:
         shell: bash
         run: |
             docker compose up -d
-            echo "Waiting for services to start..."
-            
-      - name: Dump Docker Logs on Failure
-        if: failure()
-        run: docker compose logs      
+            echo "Waiting for services to start..." 
     
       - name: Wait for startup-helper to complete
         id: wait_for_startup
@@ -60,4 +56,17 @@ jobs:
             sleep 10
             echo "Still waiting for services to start... (${elapsed}s elapsed)"
             done
-    
+          
+      - name: Save Docker Compose logs
+        if: always() && (steps.start_docker_compose.outcome == 'failure' || steps.wait_for_startup.outcome == 'failure')
+        shell: bash
+        run: |
+          echo "Saving Docker Compose logs due to startup or test failure..."
+          docker-compose logs > docker-compose.log
+
+      - name: Upload docker compose logs
+        if: always() && (steps.start_docker_compose.outcome == 'failure' || steps.wait_for_startup.outcome == 'failure')
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #v4.6.2
+        with:
+          name: docker-compose-logs-${{ github.sha }}
+          path: docker-compose.log
