@@ -62,7 +62,7 @@ jobs:
         shell: bash
         run: |
           echo "Saving Docker Compose logs due to startup or test failure..."
-          docker-compose logs > docker-compose.log
+          docker compose logs > docker-compose.log
 
       - name: Upload docker compose logs
         if: always() && (steps.start_docker_compose.outcome == 'failure' || steps.wait_for_startup.outcome == 'failure')
