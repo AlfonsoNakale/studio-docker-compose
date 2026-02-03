@@ -67,15 +67,16 @@ docker compose logs -f startup-helper
 - Model Service: http://localhost:8000
 
 ## Default Credentials
+Default values are defined for a number of credentials in the Docker Compose setup. You can optionally override these at deployment time by adding the environment variables below to the `.env` file before you run `docker compose up`.
 
-- Keycloak Admin:
+| Credential | Purpose | Default Value | Environment Variable to Override |
+|------------|---------|---------------|----------------------------------|
+| Keycloak Admin User | The username for the admin Keycloak user, used to create and manage users | `kcadmin` | `KEYCLOAK_ADMIN` |
+| Keycloak Admin Password | The password for the admin Keycloak user, used to create and manage users | `kcadmin` | `KEYCLOAK_ADMIN_PASSWORD` |
+| Keycloak Default Users Password | The password for the default Rasa Studio users that are automatically created in Keycloak | `rasa` | `KEYCLOAK_DEFAULT_USER_PASSWORD` |
+| Database Username | The username for the Postgres DB that Studio uses | `studio` | `DB_USER` |
+| Database Password | The password for the Postgres DB that Studio uses | `studio` | `DB_PASS` |
 
-  - Username: kcadmin
-  - Password: kcadmin
-
-- Database:
-  - Username: studio
-  - Password: studio
 
 ## Stopping the Application
 

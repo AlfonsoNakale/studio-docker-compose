@@ -71,8 +71,8 @@ services:
       wait"
     environment:
       PGDATA: /var/lib/postgresql/data/pgdata
-      POSTGRES_USER: studio
-      POSTGRES_PASSWORD: studio
+      POSTGRES_USER: ${DB_USER:-studio}
+      POSTGRES_PASSWORD: ${DB_PASS:-studio}
       POSTGRES_DB: studio
       POSTGRES_MULTIPLE_DATABASES: studio,keycloak
     networks:
@@ -96,8 +96,8 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-kcadmin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-kcadmin}
       KC_DB_URL: jdbc:postgresql://database:5432/keycloak
-      KC_DB_USERNAME: studio
-      KC_DB_PASSWORD: studio
+      KC_DB_USERNAME: ${DB_USER:-studio}
+      KC_DB_PASSWORD: ${DB_PASS:-studio}
     healthcheck:
       test:
         [
@@ -125,19 +125,21 @@ services:
       sh -c "yarn ts-node --transpile-only keycloak/config/index.ts && npx prisma migrate deploy && yarn ts-node --transpile-only server/index.ts"
     environment:
       DB_HOST: database
-      DB_USER: studio
-      DB_PASS: studio
+      DB_USER: ${DB_USER:-studio}
+      DB_PASS: ${DB_PASS:-studio}
       DB_NAME: studio
       DB_PORT: 5432
       DB_QUERY: schema=public
       # DATABASE_URL is needed for Prisma migration to work
-      DATABASE_URL: postgresql://studio:studio@database:5432/studio?schema=public
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASS}@database:5432/studio?schema=public
       API_URL: http://localhost:4000/api
       KEYCLOAK_URL: http://keycloak:8080/auth
       WEB_CLIENT_URL: http://localhost:8080
       MS_API_URL: http://model-service:8000
       KEYCLOAK_DEFAULT_USER_CREATION: true
       KEYCLOAK_DEFAULT_USER_PASSWORD: ${KEYCLOAK_DEFAULT_USER_PASSWORD:-rasa}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-kcadmin}
+      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-kcadmin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-kcadmin}
       KEYCLOAK_API_PASSWORD: ${KEYCLOAK_API_PASSWORD:-realmadmin}
       DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY}
@@ -169,8 +171,8 @@ services:
         condition: service_completed_successfully
     environment:
       DB_HOST: database
-      DB_USER: studio
-      DB_PASS: studio
+      DB_USER: ${DB_USER:-studio}
+      DB_PASS: ${DB_PASS:-studio}
       DB_NAME: studio
       DB_PORT: 5432
       DB_QUERY: schema=public
