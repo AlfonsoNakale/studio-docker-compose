@@ -74,7 +74,6 @@ Default values are defined for a number of credentials in the Docker Compose set
 | Keycloak Admin User | The username for the admin Keycloak user, used to create and manage users | `kcadmin` | `KEYCLOAK_ADMIN` |
 | Keycloak Admin Password | The password for the admin Keycloak user, used to create and manage users | `kcadmin` | `KEYCLOAK_ADMIN_PASSWORD` |
 | Keycloak Default Users Password | The password for the default Rasa Studio users that are automatically created in Keycloak | `rasa` | `KEYCLOAK_DEFAULT_USER_PASSWORD` |
-| Database Username | The username for the Postgres DB that Studio uses | `studio` | `DB_USER` |
 | Database Password | The password for the Postgres DB that Studio uses | `studio` | `DB_PASS` |
 
 
