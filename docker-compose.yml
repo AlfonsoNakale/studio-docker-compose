@@ -66,8 +66,8 @@ services:
     command: >
       bash -c "
       docker-entrypoint.sh postgres & sleep 5 &&
-      psql -U $$POSTGRES_USER -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'studio'\" | grep -q 1 || psql -U $$POSTGRES_USER -d postgres -c 'CREATE DATABASE studio;' &&
-      psql -U $$POSTGRES_USER -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'keycloak'\" | grep -q 1 || psql -U $$POSTGRES_USER -d postgres -c 'CREATE DATABASE keycloak;' &&
+      psql -U $$POSTGRES_USER -tc \"SELECT 1 FROM pg_database WHERE datname = 'studio'\" | grep -q 1 || psql -U $$POSTGRES_USER -d postgres -c 'CREATE DATABASE studio;' &&
+      psql -U $$POSTGRES_USER -tc \"SELECT 1 FROM pg_database WHERE datname = 'keycloak'\" | grep -q 1 || psql -U $$POSTGRES_USER -d postgres -c 'CREATE DATABASE keycloak;' &&
       wait"
     environment:
       PGDATA: /var/lib/postgresql/data/pgdata
@@ -85,7 +85,7 @@ services:
       start_period: 10s
 
   studio-keycloak:
-    image: ${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-keycloak:${STUDIO_IMAGE_TAG:-1.14.0rc0}
+    image: ${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-keycloak:${STUDIO_IMAGE_TAG:-1.15.2}
     container_name: keycloak
     depends_on:
       database:
@@ -112,7 +112,7 @@ services:
       - studio-network
 
   studio-backend:
-    image: ${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-backend:${STUDIO_IMAGE_TAG:-1.14.0rc0}
+    image: ${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-backend:${STUDIO_IMAGE_TAG:-1.15.2}
     container_name: studio-backend
     depends_on:
       database:
@@ -131,7 +131,7 @@ services:
       DB_PORT: 5432
       DB_QUERY: schema=public
       # DATABASE_URL is needed for Prisma migration to work
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASS}@database:5432/studio?schema=public
+      DATABASE_URL: postgresql://${DB_USER:-studio}:${DB_PASS:-studio}@database:5432/studio?schema=public
       API_URL: http://localhost:4000/api
       KEYCLOAK_URL: http://keycloak:8080/auth
       WEB_CLIENT_URL: http://localhost:8080
@@ -160,7 +160,7 @@ services:
       - studio-network
 
   studio-event-ingestion:
-    image: ${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-event-ingestion:${STUDIO_IMAGE_TAG:-1.14.0rc0}
+    image: ${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-event-ingestion:${STUDIO_IMAGE_TAG:-1.15.2}
     container_name: studio-event-ingestion
     depends_on:
       database:
@@ -184,7 +184,7 @@ services:
       - studio-network
 
   studio-web-client:
-    image: ${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-web-client:${STUDIO_IMAGE_TAG:-1.14.0rc0}
+    image: ${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-web-client:${STUDIO_IMAGE_TAG:-1.15.2}
     container_name: studio-web-client
     depends_on:
       - studio-backend
