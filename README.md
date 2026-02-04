@@ -13,7 +13,7 @@ This directory contains the Docker Compose configuration to run Rasa Studio loca
   - 5432: PostgreSQL Database
   - 8080: Web Client Interface
   - 8081: Keycloak Authentication
-  - 9092, 29092: Kafka Broker
+  - 19092, 29092: Kafka Broker
 
 ## Environment Variables
 
@@ -73,7 +73,29 @@ docker compose logs -f startup-helper
 
 ## Default Credentials
 
-Default values are defined for a number of credentials in the Docker Compose setup. You can optionally override these at deployment time by adding the environment variables below to the `.env` file before you run `docker compose up`.
+Default values are defined for a number of credentials in the Docker Compose setup. You can override them either by putting the variables in a `.env` file in this directory or by passing them on the command line when you run `docker compose up`.
+
+### Overriding defaults
+
+**Option 1: `.env` file**  
+Create a `.env` file in this directory (same folder as `docker-compose.yml`) and add the variables you want to override. Then run `docker compose up` as usual.
+
+**Option 2: Inline when starting**  
+Pass the variables before the command so they apply to that run only:
+
+```bash
+KEYCLOAK_ADMIN=myadmin \
+KEYCLOAK_ADMIN_PASSWORD=mypass \
+KEYCLOAK_DEFAULT_USER_PASSWORD=userpass \
+KEYCLOAK_API_PASSWORD=apipass \
+DB_USER=dbuser \
+DB_PASS=dbpass \
+docker compose up
+```
+
+Replace the example values with your own. You can omit any variable you do not want to override.
+
+### Credentials reference
 
 | Credential                      | Purpose                                                                                   | Default Value | Environment Variable to Override |
 | ------------------------------- | ----------------------------------------------------------------------------------------- | ------------- | -------------------------------- |
@@ -83,6 +105,15 @@ Default values are defined for a number of credentials in the Docker Compose set
 | Keycloak API Password           | Password used by the backend to communicate with the Keycloak API                         | `realmadmin`  | `KEYCLOAK_API_PASSWORD`          |
 | Database User                   | The Postgres user for Studio and Keycloak databases                                       | `studio`      | `DB_USER`                        |
 | Database Password               | The password for the Postgres DB that Studio uses                                         | `studio`      | `DB_PASS`                        |
+
+## Logging in
+
+To sign in to the Studio web client (http://localhost:8080), use one of the default users created in Keycloak:
+
+- **Username:** `superuser`
+- **Password:** The default is `rasa`, or the value you set with `KEYCLOAK_DEFAULT_USER_PASSWORD` if you override it.
+
+Example: if you run with `KEYCLOAK_DEFAULT_USER_PASSWORD=userpass`, log in with username `superuser` and password `userpass`.
 
 ## Stopping the Application
 

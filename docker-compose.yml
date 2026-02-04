@@ -4,7 +4,7 @@ services:
     container_name: kafka
     restart: unless-stopped
     ports:
-      - "9092:9092"
+      - "19092:9092"
       - "29092:29092"
     environment:
       KAFKA_NODE_ID: 1
@@ -78,7 +78,8 @@ services:
     networks:
       - studio-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U studio"]
+      test:
+        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER:-studio}" -d postgres']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -91,7 +92,7 @@ services:
       database:
         condition: service_healthy
     ports:
-      - "8081:8080"
+      - "127.0.0.1:8081:8080"
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-kcadmin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-kcadmin}
