@@ -11,13 +11,12 @@ env:
 
 jobs:
   test-deployment:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-4core
     steps:
       - name: Checkout code
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
         with:
-            fetch-depth: 1
-
+          fetch-depth: 1
 
       - name: Create and set permissions for working directories
         shell: bash
@@ -29,34 +28,34 @@ jobs:
         id: start_docker_compose
         shell: bash
         run: |
-            docker compose up -d
-            echo "Waiting for services to start..." 
-    
+          docker compose up -d
+          echo "Waiting for services to start..."
+
       - name: Wait for startup-helper to complete
         id: wait_for_startup
         shell: bash
         run: |
-            timeout=600  # 10 minutes timeout
-            start_time=$(date +%s)
-            while true; do
-            if docker-compose logs startup-helper | grep -q "Rasa Studio is ready!"; then
-                echo "✅ Startup completed successfully"
-                break
-            fi
-            
-            current_time=$(date +%s)
-            elapsed=$((current_time - start_time))
-            
-            if [ $elapsed -ge $timeout ]; then
-                echo "❌ Timeout waiting for services to start"
-                docker-compose logs
-                exit 1
-            fi
-            
-            sleep 10
-            echo "Still waiting for services to start... (${elapsed}s elapsed)"
-            done
-          
+          timeout=600  # 10 minutes timeout
+          start_time=$(date +%s)
+          while true; do
+          if docker-compose logs startup-helper | grep -q "Rasa Studio is ready!"; then
+              echo "✅ Startup completed successfully"
+              break
+          fi
+
+          current_time=$(date +%s)
+          elapsed=$((current_time - start_time))
+
+          if [ $elapsed -ge $timeout ]; then
+              echo "❌ Timeout waiting for services to start"
+              docker-compose logs
+              exit 1
+          fi
+
+          sleep 10
+          echo "Still waiting for services to start... (${elapsed}s elapsed)"
+          done
+
       - name: Save Docker Compose logs
         if: always() && (steps.start_docker_compose.outcome == 'failure' || steps.wait_for_startup.outcome == 'failure')
         shell: bash
