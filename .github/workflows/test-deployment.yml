@@ -1,3 +1,5 @@
+# After a new release of Docker Compose is synced from the Rasa Studio repo, this workflow is used to test the deployment of the new release.
+# It spins up the Docker Compose services and waits for the startup-helper service to complete, or alerts us in Slack if the deployment fails.
 name: Setup and Test Deployment
 
 on:
@@ -19,7 +21,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #v6.0.2
         with:
           fetch-depth: 1
 
@@ -74,3 +76,23 @@ jobs:
         with:
           name: docker compose-logs-${{ github.sha }}
           path: docker compose.log
+
+      - name: Notify Slack on failure
+        if: failure() && !cancelled()
+        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        with:
+          webhook: ${{ secrets.SLACK_CODESECURITY_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "*Studio Docker Compose New Release:* Testing the deployment after a sync has failed :rotating_light:\nRepository: ${{ github.repository }}\nRun: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Open run>\n\n${{ steps.summary.outputs.summary }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Studio Docker Compose New Release:* Testing the deployment after a sync has failed :rotating_light:\n*Repository:* `${{ github.repository }}`\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Open run>\n\n${{ steps.summary.outputs.summary }}"
+                  }
+                }
+              ]
+            }
