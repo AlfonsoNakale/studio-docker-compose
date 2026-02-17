@@ -24,13 +24,11 @@ services:
       KC_DB_PASSWORD: ${DB_PASSWORD}
       KEYCLOAK_ADMIN: kcadmin
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-      # Coolify will provide the public URL, but Keycloak needs to know it:
-      KC_HOSTNAME: ${KEYCLOAK_URL} 
+      KC_HOSTNAME: ${KEYCLOAK_URL}
       KC_PROXY: edge
     depends_on:
       studio-db:
         condition: service_healthy
-    # Removed host ports; Coolify uses internal port 8080 or 8443
 
   studio-backend:
     image: rasahq/studio-backend:latest
@@ -40,20 +38,48 @@ services:
       KEYCLOAK_URL: http://studio-keycloak:8080
       KEYCLOAK_REALM: rasa
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      KAFKA_URL: kafka:9092
     volumes:
       - studio-models:/app/models
     depends_on:
       - studio-db
       - studio-keycloak
+      - kafka
 
   studio-web-client:
     image: rasahq/studio-web-client:latest
     environment:
       BACKEND_URL: http://studio-backend:8000
-      KEYCLOAK_URL: ${KEYCLOAK_URL} # Must be the PUBLIC URL for the browser
-    # Removed ports 8080:8080. 
-    # In Coolify UI, point your domain to port 8080 of this service.
+      KEYCLOAK_URL: ${KEYCLOAK_URL}
+    depends_on:
+      - studio-backend
+
+  kafka:
+    image: bitnami/kafka:3.4
+    environment:
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+    volumes:
+      - kafka-data:/bitnami/kafka
+
+  model-service:
+    image: rasahq/rasa-pro:latest
+    environment:
+      RASA_PRO_LICENSE: ${RASA_PRO_LICENSE}
+    volumes:
+      - studio-models:/app/models
+
+  startup-helper:
+    image: alpine:latest
+    command: /bin/sh -c "echo '🚀 Rasa Studio is starting up...'"
+    depends_on:
+      - studio-web-client
 
 volumes:
   studio-db-data:
   studio-models:
+  kafka-data:
