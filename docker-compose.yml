@@ -21,7 +21,7 @@ studio-keycloak:
       database:
         condition: service_healthy
     environment:
-      # Updated to use the new variables recommended by your logs
+      # Updated to use the new variables recommended by your logss
       KC_BOOTSTRAP_ADMIN_USERNAME: '${KEYCLOAK_ADMIN:-kcadmin}'
       KC_BOOTSTRAP_ADMIN_PASSWORD: '${KEYCLOAK_ADMIN_PASSWORD:-kcadmin}'
       KC_DB_URL: 'jdbc:postgresql://database:5432/keycloak'
