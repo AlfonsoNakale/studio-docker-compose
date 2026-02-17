@@ -1,27 +1,72 @@
-version: "3.9"
+version: '3.8'
 
 services:
-  studio-db:
-    image: postgres:15-alpine
+  kafka:
+    image: 'confluentinc/cp-kafka:7.8.0'
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: rasa
-      POSTGRES_USER: rasa
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:9092'
+      KAFKA_PROCESS_ROLES: 'controller,broker'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT'
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      CLUSTER_ID: Y2hhcHRnLXNpbXBsZS1jbHVzdGVy
     volumes:
-      - studio-db-data:/var/lib/postgresql/data
+      - 'kafka-data:/var/lib/kafka/data'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rasa"]
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "kafka:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - studio-network
+
+  init-topics:
+    image: 'confluentinc/cp-kafka:7.8.0'
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: [ "/bin/sh", "-c" ]
+    command: |
+      "
+      kafka-topics --create --if-not-exists --topic rasa-events --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 ;
+      kafka-topics --create --if-not-exists --topic rasa-events-dlq --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1
+      "
+    networks:
+      - studio-network
+
+  database:
+    image: 'postgres:16-alpine'
+    volumes:
+      - 'studio-db-data:/var/lib/postgresql/data/pgdata'
+    command: >
+      bash -c "docker-entrypoint.sh postgres & sleep 5 && 
+      psql -U $$POSTGRES_USER -tc \"SELECT 1 FROM pg_database WHERE datname = 'studio'\" | grep -q 1 || psql -U $$POSTGRES_USER -d postgres -c 'CREATE DATABASE studio;' && 
+      psql -U $$POSTGRES_USER -tc \"SELECT 1 FROM pg_database WHERE datname = 'keycloak'\" | grep -q 1 || psql -U $$POSTGRES_USER -d postgres -c 'CREATE DATABASE keycloak;' && wait"
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_USER: '${DB_USER:-studio}'
+      POSTGRES_PASSWORD: '${DB_PASS:-studio}'
+      POSTGRES_DB: studio
+    networks:
+      - studio-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-studio} -d postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-studio-keycloak:
+  studio-keycloak:
     image: '${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-keycloak:${STUDIO_IMAGE_TAG:-1.15.2}'
     depends_on:
       database:
         condition: service_healthy
     environment:
-      # Updated to use the new variables recommended by your logss
       KC_BOOTSTRAP_ADMIN_USERNAME: '${KEYCLOAK_ADMIN:-kcadmin}'
       KC_BOOTSTRAP_ADMIN_PASSWORD: '${KEYCLOAK_ADMIN_PASSWORD:-kcadmin}'
       KC_DB_URL: 'jdbc:postgresql://database:5432/keycloak'
@@ -29,66 +74,62 @@ studio-keycloak:
       KC_DB_PASSWORD: '${DB_PASS:-studio}'
       KC_HOSTNAME: 'auth.zipeeed.com'
       KC_PROXY: edge
-      KC_HEALTH_ENABLED: 'true' # Explicitly enable health endpoints
+      KC_HEALTH_ENABLED: 'true'
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
-      interval: 20s
+      interval: 15s
       timeout: 10s
-      retries: 10
-      start_period: 120s # Giving it 2 mins to handle that 90s boot time
+      retries: 15
+      start_period: 120s
     networks:
       - studio-network
 
   studio-backend:
-    image: rasahq/studio-backend:latest
-    environment:
-      RASA_PRO_LICENSE: ${RASA_PRO_LICENSE}
-      DB_URL: postgresql://rasa:${DB_PASSWORD}@studio-db:5432/rasa
-      KEYCLOAK_URL: http://studio-keycloak:8080
-      KEYCLOAK_REALM: rasa
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      KAFKA_URL: kafka:9092
-    volumes:
-      - studio-models:/app/models
+    image: '${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-backend:${STUDIO_IMAGE_TAG:-1.15.2}'
     depends_on:
-      - studio-db
-      - studio-keycloak
-      - kafka
+      database:
+        condition: service_healthy
+      studio-keycloak:
+        condition: service_healthy
+    environment:
+      DB_HOST: database
+      DB_USER: '${DB_USER:-studio}'
+      DB_PASS: '${DB_PASS:-studio}'
+      DB_NAME: studio
+      DB_PORT: 5432
+      DATABASE_URL: 'postgresql://${DB_USER:-studio}:${DB_PASS:-studio}@database:5432/studio?schema=public'
+      KEYCLOAK_URL: 'https://auth.zipeeed.com/auth'
+      WEB_CLIENT_URL: 'https://rasa.zipeeed.com'
+      MS_API_URL: 'http://model-service:8000'
+      KEYCLOAK_DEFAULT_USER_PASSWORD: '${KEYCLOAK_DEFAULT_USER_PASSWORD:-rasa}'
+      DEEPGRAM_API_KEY: '${DEEPGRAM_API_KEY}'
+      CARTESIA_API_KEY: '${CARTESIA_API_KEY}'
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - studio-network
 
   studio-web-client:
-    image: rasahq/studio-web-client:latest
-    environment:
-      BACKEND_URL: http://studio-backend:8000
-      KEYCLOAK_URL: ${KEYCLOAK_URL}
+    image: '${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-web-client:${STUDIO_IMAGE_TAG:-1.15.2}'
     depends_on:
-      - studio-backend
-
-  kafka:
-    image: bitnami/kafka:3.4
+      studio-backend:
+        condition: service_healthy
     environment:
-      - KAFKA_CFG_NODE_ID=0
-      - KAFKA_CFG_PROCESS_ROLES=controller,broker
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-    volumes:
-      - kafka-data:/bitnami/kafka
+      BACKEND_URL: 'http://studio-backend:4000'
+      KEYCLOAK_URL: 'https://auth.zipeeed.com/auth'
+    networks:
+      - studio-network
 
   model-service:
-    image: rasahq/rasa-pro:latest
-    environment:
-      RASA_PRO_LICENSE: ${RASA_PRO_LICENSE}
+    image: '${RASA_PRO_IMAGE:-europe-west3-docker.pkg.dev/rasa-releases/rasa-pro/rasa-pro:3.15.1}'
+    entrypoint: [ "/bin/sh", "-c" ]
+    command: "python -m rasa.model_service"
     volumes:
-      - studio-models:/app/models
-
-  startup-helper:
-    image: alpine:latest
-    command: /bin/sh -c "echo '🚀 Rasa Studio is starting up...'"
-    depends_on:
-      - studio-web-client
-
-volumes:
-  studio-db-data:
-  studio-models:
-  kafka-data:
+      - 'rasa-pro-data:/app/working-data'
+    environment:
+      RASA_PRO_LICENSE: '${RASA_PRO_LICENSE}'
+      OPENAI_API_KEY: '${OPENAI_API_KEY}'
+      KEYCLOAK_URL: 'https://auth.
