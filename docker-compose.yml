@@ -21,20 +21,21 @@ studio-keycloak:
       database:
         condition: service_healthy
     environment:
-      KEYCLOAK_ADMIN: '${KEYCLOAK_ADMIN:-kcadmin}'
-      KEYCLOAK_ADMIN_PASSWORD: '${KEYCLOAK_ADMIN_PASSWORD:-kcadmin}'
+      # Updated to use the new variables recommended by your logs
+      KC_BOOTSTRAP_ADMIN_USERNAME: '${KEYCLOAK_ADMIN:-kcadmin}'
+      KC_BOOTSTRAP_ADMIN_PASSWORD: '${KEYCLOAK_ADMIN_PASSWORD:-kcadmin}'
       KC_DB_URL: 'jdbc:postgresql://database:5432/keycloak'
       KC_DB_USERNAME: '${DB_USER:-studio}'
       KC_DB_PASSWORD: '${DB_PASS:-studio}'
       KC_HOSTNAME: 'auth.zipeeed.com'
       KC_PROXY: edge
+      KC_HEALTH_ENABLED: 'true' # Explicitly enable health endpoints
     healthcheck:
-      # We use a simpler check: is the port open and responding?
       test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
-      interval: 15s
+      interval: 20s
       timeout: 10s
-      retries: 15
-      start_period: 60s
+      retries: 10
+      start_period: 120s # Giving it 2 mins to handle that 90s boot time
     networks:
       - studio-network
 
