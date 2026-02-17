@@ -62,7 +62,7 @@ services:
       retries: 5
 
   studio-keycloak:
-    image: '${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-keycloak:${STUDIO_IMAGE_TAG:-1.15.2}'
+    image: 'europe-west3-docker.pkg.dev/rasa-releases/studio/studio-keycloak:1.15.2'
     depends_on:
       database:
         condition: service_healthy
@@ -75,11 +75,18 @@ services:
       KC_HOSTNAME: 'auth.zipeeed.com'
       KC_PROXY: edge
       KC_HEALTH_ENABLED: 'true'
+    healthcheck:
+      # Keycloak 26 health check is on port 9000 by default
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000; echo -e 'GET /health/live HTTP/1.1\\r\\nhost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; grep -q '200 OK' <&3"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
     networks:
       - studio-network
 
   studio-backend:
-    image: '${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-backend:${STUDIO_IMAGE_TAG:-1.15.2}'
+    image: 'europe-west3-docker.pkg.dev/rasa-releases/studio/studio-backend:1.15.2'
     depends_on:
       database:
         condition: service_healthy
@@ -90,27 +97,18 @@ services:
       DB_USER: '${DB_USER:-studio}'
       DB_PASS: '${DB_PASS:-studio}'
       DB_NAME: studio
-      DB_PORT: 5432
       DATABASE_URL: 'postgresql://${DB_USER:-studio}:${DB_PASS:-studio}@database:5432/studio?schema=public'
       KEYCLOAK_URL: 'https://auth.zipeeed.com/auth'
       WEB_CLIENT_URL: 'https://rasa.zipeeed.com'
       MS_API_URL: 'http://model-service:8000'
       KEYCLOAK_DEFAULT_USER_PASSWORD: '${KEYCLOAK_DEFAULT_USER_PASSWORD:-rasa}'
-      DEEPGRAM_API_KEY: '${DEEPGRAM_API_KEY}'
-      CARTESIA_API_KEY: '${CARTESIA_API_KEY}'
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:4000/api/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     networks:
       - studio-network
 
   studio-web-client:
-    image: '${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-web-client:${STUDIO_IMAGE_TAG:-1.15.2}'
+    image: 'europe-west3-docker.pkg.dev/rasa-releases/studio/studio-web-client:1.15.2'
     depends_on:
-      studio-backend:
-        condition: service_healthy
+      - studio-backend
     environment:
       BACKEND_URL: 'http://studio-backend:4000'
       KEYCLOAK_URL: 'https://auth.zipeeed.com/auth'
@@ -118,7 +116,7 @@ services:
       - studio-network
 
   model-service:
-    image: '${RASA_PRO_IMAGE:-europe-west3-docker.pkg.dev/rasa-releases/rasa-pro/rasa-pro:3.15.1}'
+    image: 'europe-west3-docker.pkg.dev/rasa-releases/rasa-pro/rasa-pro:3.15.1'
     entrypoint: [ "/bin/sh", "-c" ]
     command: "python -m rasa.model_service"
     volumes:
