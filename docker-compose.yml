@@ -67,20 +67,20 @@ services:
       database:
         condition: service_healthy
     environment:
-      KEYCLOAK_ADMIN: '${KEYCLOAK_ADMIN:-kcadmin}'
-      KEYCLOAK_ADMIN_PASSWORD: '${KEYCLOAK_ADMIN_PASSWORD:-kcadmin}'
+      KC_BOOTSTRAP_ADMIN_USERNAME: '${KEYCLOAK_ADMIN:-kcadmin}'
+      KC_BOOTSTRAP_ADMIN_PASSWORD: '${KEYCLOAK_ADMIN_PASSWORD:-kcadmin}'
       KC_DB_URL: 'jdbc:postgresql://database:5432/keycloak'
       KC_DB_USERNAME: '${DB_USER:-studio}'
       KC_DB_PASSWORD: '${DB_PASS:-studio}'
       KC_HOSTNAME: 'auth.zipeeed.com'
       KC_PROXY: edge
+      KC_HEALTH_ENABLED: 'true'
     healthcheck:
-      # This checks if the Keycloak login page is serving a 200 OK
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/auth/realms/master || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      interval: 15s
+      timeout: 10s
+      retries: 15
+      start_period: 120s
     networks:
       - studio-network
 
@@ -102,6 +102,8 @@ services:
       WEB_CLIENT_URL: 'https://rasa.zipeeed.com'
       MS_API_URL: 'http://model-service:8000'
       KEYCLOAK_DEFAULT_USER_PASSWORD: '${KEYCLOAK_DEFAULT_USER_PASSWORD:-rasa}'
+      DEEPGRAM_API_KEY: '${DEEPGRAM_API_KEY}'
+      CARTESIA_API_KEY: '${CARTESIA_API_KEY}'
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:4000/api/health || exit 1"]
       interval: 10s
