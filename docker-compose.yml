@@ -1,268 +1,59 @@
+version: "3.9"
+
 services:
-  kafka:
-    image: confluentinc/cp-kafka:7.8.0
-    container_name: kafka
-    restart: unless-stopped
-    ports:
-      - "19092:9092"
-      - "29092:29092"
+  studio-db:
+    image: postgres:15-alpine
     environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:29092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
-      KAFKA_PROCESS_ROLES: controller,broker
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LOG_DIRS: /var/lib/kafka/data
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      CLUSTER_ID: "Y2hhcHRnLXNpbXBsZS1jbHVzdGVy"
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      POSTGRES_DB: rasa
+      POSTGRES_USER: rasa
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - kafka-data:/var/lib/kafka/data
+      - studio-db-data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        ["CMD", "kafka-topics", "--bootstrap-server", "kafka:9092", "--list"]
-      interval: 10s
-      retries: 5
-      start_period: 10s
-    networks:
-      - studio-network
-
-  init-topics:
-    image: confluentinc/cp-kafka:7.8.0
-    depends_on:
-      kafka:
-        condition: service_healthy
-    entrypoint: ["/bin/sh", "-c"]
-    command: |
-      "
-      kafka-topics --create --if-not-exists --topic rasa-events --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 ;
-      kafka-topics --create --if-not-exists --topic rasa-events-dlq --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1
-      "
-    healthcheck:
-      test: |
-        /bin/sh -c '
-        kafka-topics --bootstrap-server kafka:9092 --list | grep -q "rasa-events" &&
-        kafka-topics --bootstrap-server kafka:9092 --list | grep -q "rasa-events-dlq"
-        '
+      test: ["CMD-SHELL", "pg_isready -U rasa"]
       interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 10s
-    networks:
-      - studio-network
-
-  database:
-    image: postgres:16-alpine
-    container_name: studio-database
-    volumes:
-      - studio-db-data:/var/lib/postgresql/data/pgdata
-    ports:
-      - "5432:5432"
-    command: >
-      bash -c "
-      docker-entrypoint.sh postgres & sleep 5 &&
-      psql -U $$POSTGRES_USER -tc \"SELECT 1 FROM pg_database WHERE datname = 'studio'\" | grep -q 1 || psql -U $$POSTGRES_USER -d postgres -c 'CREATE DATABASE studio;' &&
-      psql -U $$POSTGRES_USER -tc \"SELECT 1 FROM pg_database WHERE datname = 'keycloak'\" | grep -q 1 || psql -U $$POSTGRES_USER -d postgres -c 'CREATE DATABASE keycloak;' &&
-      wait"
-    environment:
-      PGDATA: /var/lib/postgresql/data/pgdata
-      POSTGRES_USER: ${DB_USER:-studio}
-      POSTGRES_PASSWORD: ${DB_PASS:-studio}
-      POSTGRES_DB: studio
-      POSTGRES_MULTIPLE_DATABASES: studio,keycloak
-    networks:
-      - studio-network
-    healthcheck:
-      test:
-        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER:-studio}" -d postgres']
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
 
   studio-keycloak:
-    image: ${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-keycloak:${STUDIO_IMAGE_TAG:-1.15.2}
-    container_name: keycloak
-    depends_on:
-      database:
-        condition: service_healthy
-    ports:
-      - "127.0.0.1:8081:8080"
+    image: rasahq/studio-keycloak:latest
     environment:
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-kcadmin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-kcadmin}
-      KC_DB_URL: jdbc:postgresql://database:5432/keycloak
-      KC_DB_USERNAME: ${DB_USER:-studio}
-      KC_DB_PASSWORD: ${DB_PASS:-studio}
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          '[ -f /tmp/HealthCheck.java ] || echo "public class HealthCheck { public static void main(String[] args) throws java.lang.Throwable { System.exit(java.net.HttpURLConnection.HTTP_OK == ((java.net.HttpURLConnection)new java.net.URL(args[0]).openConnection()).getResponseCode() ? 0 : 1); } }" > /tmp/HealthCheck.java && java /tmp/HealthCheck.java http://localhost:8080/auth/',
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
-    networks:
-      - studio-network
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://studio-db:5432/rasa
+      KC_DB_USERNAME: rasa
+      KC_DB_PASSWORD: ${DB_PASSWORD}
+      KEYCLOAK_ADMIN: kcadmin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      # Coolify will provide the public URL, but Keycloak needs to know it:
+      KC_HOSTNAME: ${KEYCLOAK_URL} 
+      KC_PROXY: edge
+    depends_on:
+      studio-db:
+        condition: service_healthy
+    # Removed host ports; Coolify uses internal port 8080 or 8443
 
   studio-backend:
-    image: ${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-backend:${STUDIO_IMAGE_TAG:-1.15.2}
-    container_name: studio-backend
-    depends_on:
-      database:
-        condition: service_healthy
-      studio-keycloak:
-        condition: service_healthy
-    ports:
-      - "4000:4000"
-    command: >
-      sh -c "yarn ts-node --transpile-only keycloak/config/index.ts && npx prisma migrate deploy && yarn ts-node --transpile-only server/index.ts"
+    image: rasahq/studio-backend:latest
     environment:
-      DB_HOST: database
-      DB_USER: ${DB_USER:-studio}
-      DB_PASS: ${DB_PASS:-studio}
-      DB_NAME: studio
-      DB_PORT: 5432
-      DB_QUERY: schema=public
-      # DATABASE_URL is needed for Prisma migration to work
-      DATABASE_URL: postgresql://${DB_USER:-studio}:${DB_PASS:-studio}@database:5432/studio?schema=public
-      API_URL: http://localhost:4000/api
-      KEYCLOAK_URL: http://keycloak:8080/auth
-      WEB_CLIENT_URL: http://localhost:8080
-      MS_API_URL: http://model-service:8000
-      KEYCLOAK_DEFAULT_USER_CREATION: true
-      KEYCLOAK_DEFAULT_USER_PASSWORD: ${KEYCLOAK_DEFAULT_USER_PASSWORD:-rasa}
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-kcadmin}
-      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-kcadmin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-kcadmin}
-      KEYCLOAK_API_PASSWORD: ${KEYCLOAK_API_PASSWORD:-realmadmin}
-      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY}
-      CARTESIA_API_KEY: ${CARTESIA_API_KEY}
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "require('http').get('http://localhost:4000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - studio-network
-
-  studio-event-ingestion:
-    image: ${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-event-ingestion:${STUDIO_IMAGE_TAG:-1.15.2}
-    container_name: studio-event-ingestion
+      RASA_PRO_LICENSE: ${RASA_PRO_LICENSE}
+      DB_URL: postgresql://rasa:${DB_PASSWORD}@studio-db:5432/rasa
+      KEYCLOAK_URL: http://studio-keycloak:8080
+      KEYCLOAK_REALM: rasa
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    volumes:
+      - studio-models:/app/models
     depends_on:
-      database:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      init-topics:
-        condition: service_completed_successfully
-    environment:
-      DB_HOST: database
-      DB_USER: ${DB_USER:-studio}
-      DB_PASS: ${DB_PASS:-studio}
-      DB_NAME: studio
-      DB_PORT: 5432
-      DB_QUERY: schema=public
-      KAFKA_BROKER_ADDRESS: kafka:9092
-      KAFKA_TOPIC: rasa-events
-      KAFKA_DLQ_TOPIC: rasa-events-dlq
-      KAFKA_GROUP_ID: rasa-events-group
-    networks:
-      - studio-network
+      - studio-db
+      - studio-keycloak
 
   studio-web-client:
-    image: ${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-web-client:${STUDIO_IMAGE_TAG:-1.15.2}
-    container_name: studio-web-client
-    depends_on:
-      - studio-backend
-      - studio-keycloak
-    ports:
-      - "8080:8080"
-    healthcheck:
-      test: ["CMD", "nginx", "-t"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    networks:
-      - studio-network
-
-  model-service:
-    image: ${RASA_PRO_IMAGE:-europe-west3-docker.pkg.dev/rasa-releases/rasa-pro/rasa-pro:3.15.1}
-    container_name: model-service
-    ports:
-      - "5005:5005"
-      - "5006:5006"
-      - "8000:8000"
-    entrypoint: ["/bin/sh", "-c"]
-    command: |
-      "python -m rasa.model_service"
-    volumes:
-      - "./rasa-pro:/app/working-data"
-      - "./rasa-pro/enterprise-search-data:/app/docs"
+    image: rasahq/studio-web-client:latest
     environment:
-      RASA_MODEL_SERVER_BASE_URL: http://localhost:8000/talk
-      RASA_PRO_LICENSE: ${RASA_PRO_LICENSE}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      KEYCLOAK_REALM: rasa-studio
-      KEYCLOAK_URL: http://keycloak:8080/auth
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - studio-network
-
-  startup-helper:
-    image: alpine:3.18
-    depends_on:
-      kafka:
-        condition: service_healthy
-      database:
-        condition: service_healthy
-      studio-keycloak:
-        condition: service_healthy
-      studio-event-ingestion:
-        condition: service_started
-      studio-backend:
-        condition: service_healthy
-      studio-web-client:
-        condition: service_healthy
-      model-service:
-        condition: service_healthy
-    command: |
-      sh -c '
-      echo "Waiting for all services to be ready..."
-      echo "=========================================="
-      echo "🚀 Rasa Studio is ready!"
-      echo "📱 Studio URL: http://localhost:8080"
-      echo "🔐 Keycloak User Management URL: http://localhost:8081/auth/"
-      echo "=========================================="
-      '
-    networks:
-      - studio-network
-
-networks:
-  studio-network:
-    driver: bridge
+      BACKEND_URL: http://studio-backend:8000
+      KEYCLOAK_URL: ${KEYCLOAK_URL} # Must be the PUBLIC URL for the browser
+    # Removed ports 8080:8080. 
+    # In Coolify UI, point your domain to port 8080 of this service.
 
 volumes:
   studio-db-data:
-  kafka-data:
-  rasa-pro-data:
+  studio-models:
