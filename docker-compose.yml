@@ -132,4 +132,15 @@ services:
     environment:
       RASA_PRO_LICENSE: '${RASA_PRO_LICENSE}'
       OPENAI_API_KEY: '${OPENAI_API_KEY}'
-      KEYCLOAK_URL: 'https://auth.
+      KEYCLOAK_URL: 'https://auth.zipeeed.com/auth'
+    networks:
+      - studio-network
+
+networks:
+  studio-network:
+    driver: bridge
+
+volumes:
+  studio-db-data:
+  kafka-data:
+  rasa-pro-data:
