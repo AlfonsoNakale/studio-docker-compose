@@ -15,20 +15,28 @@ services:
       timeout: 5s
       retries: 5
 
-  studio-keycloak:
-    image: rasahq/studio-keycloak:latest
-    environment:
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://studio-db:5432/rasa
-      KC_DB_USERNAME: rasa
-      KC_DB_PASSWORD: ${DB_PASSWORD}
-      KEYCLOAK_ADMIN: kcadmin
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-      KC_HOSTNAME: ${KEYCLOAK_URL}
-      KC_PROXY: edge
+studio-keycloak:
+    image: '${STUDIO_IMAGE_PATH:-europe-west3-docker.pkg.dev/rasa-releases/studio}/studio-keycloak:${STUDIO_IMAGE_TAG:-1.15.2}'
     depends_on:
-      studio-db:
+      database:
         condition: service_healthy
+    environment:
+      KEYCLOAK_ADMIN: '${KEYCLOAK_ADMIN:-kcadmin}'
+      KEYCLOAK_ADMIN_PASSWORD: '${KEYCLOAK_ADMIN_PASSWORD:-kcadmin}'
+      KC_DB_URL: 'jdbc:postgresql://database:5432/keycloak'
+      KC_DB_USERNAME: '${DB_USER:-studio}'
+      KC_DB_PASSWORD: '${DB_PASS:-studio}'
+      KC_HOSTNAME: 'auth.zipeeed.com'
+      KC_PROXY: edge
+    healthcheck:
+      # We use a simpler check: is the port open and responding?
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      interval: 15s
+      timeout: 10s
+      retries: 15
+      start_period: 60s
+    networks:
+      - studio-network
 
   studio-backend:
     image: rasahq/studio-backend:latest
